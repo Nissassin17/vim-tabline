@@ -108,7 +108,9 @@ function! tabline#build() "{{{
       if tabnr == s:tab_current
         let split = '%#TabLineSplitNrSel#' . tab.split .'%#TabLineSel#'
       else
-        let split = '%#TabLineSplitNr#' . tab.split .'%#TabLine#'
+		"dont format this number
+        "let split = '%#TabLineSplitNr#' . tab.split .'%#TabLine#'
+        let split = '%#TabLine#' . tab.split
       endif
     endif
 
@@ -135,7 +137,8 @@ function! tabline#build() "{{{
     let s:output .= '%' . tabnr . 'T'  " start of tab N
 
     if tabnr == s:tab_current
-      let s:output .= '%#TabLineNrSel#' . tabnr . '%#TabLineSel#'
+      "let s:output .= '%#TabLineNrSel#' . tabnr . '%#TabLineSel#'
+      let s:output .= '%#TabLineSel#'
     else
       let s:output .= '%#TabLineNr#' . tabnr . '%#TabLine#'
     endif
@@ -145,6 +148,7 @@ function! tabline#build() "{{{
   endfor
 
   let s:output .= '%#TabLineFill#%T'
+  let s:output .= (tabpagenr('$') > 1 ? '%=%#TabLine#%999XX' : '')
   if exists('s:result_string') && s:result_string !=# s:output
     let s:dirty = 1
   endif
@@ -176,7 +180,8 @@ function! s:parse_tabs() "{{{
     endif
 
     let window_count = tabpagewinnr(tabnr, '$')
-    if window_count > 1
+	" dont show number of windows for opening tab
+    if window_count > 1 && tabnr != tabpagenr()
       let split = window_count
     else
       let split = ''
