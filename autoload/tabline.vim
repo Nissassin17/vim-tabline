@@ -169,15 +169,20 @@ function! s:parse_tabs() "{{{
     let bufnr = tabpagebuflist(tabnr)[tabpagewinnr(tabnr) - 1]
 
     let filename = bufname(bufnr)
-    let filename = fnamemodify(filename, ':p:t')
-    let buftype = getbufvar(bufnr, '&buftype')
-    if filename == ''
-      if buftype == 'nofile'
-        let filename .= s:option('nofile_text')
-      else
-        let filename .= s:option('new_file_text')
-      endif
-    endif
+	let buftype = getbufvar(bufnr, '&buftype')
+	if buftype == 'nofile'
+		if filename =~ '\/.'
+			let filename = substitute(filename, '.*\/\ze.', '', '')
+		endif
+		if filename == ''
+			let filename = s:option('nofile_text')
+		end
+	else
+		let filename = fnamemodify(filename, ':p:t')
+	endif
+	if filename == ''
+		let filename = s:option('new_file_text')
+	endif
 
     let window_count = tabpagewinnr(tabnr, '$')
 	" dont show number of windows for opening tab
@@ -188,9 +193,14 @@ function! s:parse_tabs() "{{{
     endif
 
     let flag = ''
-    if getbufvar(bufnr, '&modified')
-      let flag .= s:option('modified_text')
-    endif
+	let it = 0
+	while it < window_count
+		if getbufvar(tabpagebuflist(tabnr)[it], '&modified')
+		  let flag .= s:option('modified_text')
+		  break
+		endif
+		let it += 1
+	endwhile
 
     if strlen(flag) > 0 || strlen(split) > 0
       let flag .= ' '
