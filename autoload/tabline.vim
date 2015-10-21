@@ -46,7 +46,7 @@ function! tabline#build() "{{{
   " 1. apply min/max tab_width option
   if s:total_length(tabs) > &columns
     for tab in tabs
-      let tab_length = s:tab_length(tab)
+      let tab_length = s:tab_length(tab, s:tab_current)
       if tab_length < tab_min_width
         let tab.filename .= repeat(' ', tab_min_width - tab_length)
       elseif tab_max_width > 0 && tab_length > tab_max_width
@@ -63,7 +63,7 @@ function! tabline#build() "{{{
     if s:total_length(tabs) > &columns
       let target_length = max([tab_min_width, s:option('tab_min_shrinked_width'), &columns / s:tab_count, s:string_width(ellipsis_text)])
       for tab in tabs
-        let tab_length = s:tab_length(tab)
+        let tab_length = s:tab_length(tab, s:tab_current)
         if tab_length > target_length
           let tab.filename = s:string_truncate(tab.filename, target_length - s:string_width(ellipsis_text), '~') . ellipsis_text
         endif
@@ -77,14 +77,14 @@ function! tabline#build() "{{{
   let rhs_start = min([s:tab_current - 1, s:tab_current - scroll_off])
   while rhs_iter >= max([rhs_start, 0])
     let tab = tabs[rhs_iter]
-    let tab_length = s:tab_length(tab)
+    let tab_length = s:tab_length(tab, s:tab_current)
     let rhs_length += tab_length
     let rhs_iter -= 1
   endwhile
 
   while rhs_length >= &columns
     let tab = tabs[-1]
-    let tab_length = s:tab_length(tab)
+    let tab_length = s:tab_length(tab, s:tab_current)
     let last_tab_length = &columns - (rhs_length - tab_length)
     let rhs_length -= tab_length
     if rhs_length > &columns
@@ -104,8 +104,10 @@ function! tabline#build() "{{{
     let split = ''
     let text = ''
 
+	" print number of windows in page (> 0) if the tab is not presently focused on
     if strlen(tab.split) > 0
       if tabnr == s:tab_current
+		  "never occur 'cause tab.split msut be empty
         let split = '%#TabLineSplitNrSel#' . tab.split .'%#TabLineSel#'
       else
 		"dont format this number
@@ -114,7 +116,18 @@ function! tabline#build() "{{{
       endif
     endif
 
-    let text = ' ' . split . tab.flag . tab.filename . ' '
+	" split: number of windows with format
+	" tab.split: raw split
+	" tab.flag: (+) to indicate tab is edited or not
+	
+    let text = ' ' .  tab.filename
+	if tab.flag . split  == ''
+		"put space between filename and next tab number
+		let text = text . ' '
+	else
+		"else put number of window + modify flag in curly braces
+		let text = text . '[' . split . tab.flag . ']'
+	endif
 
     if tab.n == tabs[-1].n
       if match(tab.flag, '>\d\+') > -1 || tab.n < s:tab_count
@@ -203,7 +216,7 @@ function! s:parse_tabs() "{{{
 	endwhile
 
     if strlen(flag) > 0 || strlen(split) > 0
-      let flag .= ' '
+      let flag .= ''
     endif
 
     call add(s:tabs, {'n': tabnr, 'split': split, 'flag': flag, 'filename': filename})
@@ -220,8 +233,25 @@ function! s:option(key) "{{{
 endfunction "}}}
 
 
-function! s:tab_length(tab) "{{{
-  return strlen(a:tab.n) + 2 + strlen(a:tab.split) + strlen(a:tab.flag) + s:string_width(a:tab.filename)
+function! s:tab_length(tab, current_tab) "{{{
+	let result = 0
+	if a:tab.n != a:current_tab
+		let result = result + strlen(a:tab.n)
+	endif
+	let reslut = result + s:string_width(a:tab.filename)
+
+	let split_length = 0
+	if strlen(a:tab.split) > 0
+		if a:tab.n != a:current_tab
+			let split_length = strlen(a:tab.split)
+		endif
+	endif
+	if a:tab.flag == '' && split_length == 0
+		let result = result + 1
+	else
+		let result = result + 2 + strlen(a:tab.flag) + split_length
+	endif
+	return result
 endfunction "}}}
 
 
