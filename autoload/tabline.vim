@@ -72,6 +72,7 @@ function! tabline#build() "{{{
   endif
 
   " 3. ensure visibility of current tab
+  let l:buttons_length = 3
   let rhs_length = 0
   let rhs_iter = s:tab_count - 1
   let rhs_start = min([s:tab_current - 1, s:tab_current - scroll_off])
@@ -82,19 +83,17 @@ function! tabline#build() "{{{
     let rhs_iter -= 1
   endwhile
 
-  while rhs_length >= &columns
+  while rhs_length + l:buttons_length >= &columns && tabs[-1].n != s:tab_current
     let tab = tabs[-1]
     let tab_length = s:tab_length(tab, s:tab_current)
-    let last_tab_length = &columns - (rhs_length - tab_length)
     let rhs_length -= tab_length
-    if rhs_length > &columns
+    if rhs_length + l:buttons_length > &columns
       call remove(tabs, -1)
-    else
-      " add special flag (will be removed later) indicating that how many
-      " columns could be used for last displayed tab.
-      if s:tab_current <= scroll_off || s:tab_current < s:tab_count - scroll_off
-        let tab.flag .= '>' . last_tab_length
-      endif
+    elseif s:tab_current <= scroll_off || s:tab_current < s:tab_count - scroll_off
+    " add special flag (will be removed later) indicating that how many
+    " columns could be used for last displayed tab.
+      let last_tab_length = &columns - rhs_length - l:buttons_length
+      let tab.flag .= '>' . last_tab_length
     endif
   endwhile
 
@@ -105,7 +104,7 @@ function! tabline#build() "{{{
     let text = ''
 
 	" print number of windows in page (> 0) if the tab is not presently focused on
-    if strlen(tab.split) > 0
+    if s:string_width(tab.split) > 0
       if tabnr == s:tab_current
 		  "never occur 'cause tab.split msut be empty
         let split = '%#TabLineSplitNrSel#' . tab.split .'%#TabLineSel#'
@@ -130,18 +129,18 @@ function! tabline#build() "{{{
 	endif
 
     if tab.n == tabs[-1].n
-      if match(tab.flag, '>\d\+') > -1 || tab.n < s:tab_count
+      if match(tab.flag, '>\d\+') > -1
         let last_tab_length = matchstr(tab.flag, '>\zs\d\+')
         let tab.flag = substitute(tab.flag, '>\d\+', '', '')
-        if last_tab_length <= strlen(tab.n)
+        if last_tab_length <= s:string_width(tab.n) + s:string_width(' ') + s:string_width(ellipsis_text)
           if last_tab_length == 0
-            let s:output = strpart(s:output, 0, strlen(s:output) - 1)
+            let s:output = strpart(s:output, 0, s:string_width(s:output) - 1)
           endif
           let s:output .= '%#TabLineMore#>'
           continue
         else
           let text = ' ' . tab.split . tab.flag . tab.filename . ' '
-          let text = s:string_truncate(text, (last_tab_length - strlen(tab.n) - 1), '~') . '%#TabLineMore#>'
+          let text = s:string_truncate(text, (last_tab_length - s:string_width(tab.n) - s:string_width(ellipsis_text)), '~'). ellipsis_text . '%#TabLineMore#>'
           let text = substitute(text, ' ' . tab.split, ' ' . split, '')
         endif
       endif
@@ -215,7 +214,7 @@ function! s:parse_tabs() "{{{
 		let it += 1
 	endwhile
 
-    if strlen(flag) > 0 || strlen(split) > 0
+    if s:string_width(flag) > 0 || s:string_width(split) > 0
       let flag .= ''
     endif
 
@@ -236,21 +235,21 @@ endfunction "}}}
 function! s:tab_length(tab, current_tab) "{{{
 	let result = 0
 	if a:tab.n != a:current_tab
-		let result = result + strlen(a:tab.n)
+		let result += s:string_width(a:tab.n) + 1
 	endif
-	let reslut = result + s:string_width(a:tab.filename)
+	let result += s:string_width(a:tab.filename)
 
 	let split_length = 0
-	if strlen(a:tab.split) > 0
-		if a:tab.n != a:current_tab
-			let split_length = strlen(a:tab.split)
-		endif
-	endif
+  "never show split of current tab
+  if a:tab.n != a:current_tab
+    let split_length = s:string_width(a:tab.split)
+  endif
 	if a:tab.flag == '' && split_length == 0
-		let result = result + 1
-	else
-		let result = result + 2 + strlen(a:tab.flag) + split_length
-	endif
+    let result += 1
+  else
+    "2 stands for [ and ]
+    let result += s:string_width(a:tab.flag) + split_length + 2
+  endif
 	return result
 endfunction "}}}
 
@@ -258,7 +257,7 @@ endfunction "}}}
 function! s:total_length(dict) "{{{
   let length = 0
   for i in (a:dict)
-    let length += strlen(i.n) + 2 + strlen(i.split) + strlen(i.flag) + s:string_width(i.filename)
+    let length += s:string_width(i.n) + 2 + s:string_width(i.split) + s:string_width(i.flag) + s:string_width(i.filename)
   endfor
   return length
 endfunction "}}}
